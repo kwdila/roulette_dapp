@@ -27,7 +27,7 @@ describe("roulette_dapp", () => {
   const isBlack_bob3 = false;
 
   describe("Initialize Bet", async () => {
-    it("Initialize Tweet!", async () => {
+    it("Bet initialized!", async () => {
       await airdrop(provider.connection, bob.publicKey);
       const [bet_pkey, bet_bump] = getBetAdress(
         betNumber_bob1,
@@ -43,7 +43,7 @@ describe("roulette_dapp", () => {
           betAuthority: bob.publicKey,
         })
         .signers([bob])
-        .rpc({ skipPreflight: true });
+        .rpc({ commitment: "confirmed" });
 
       await checkTweet(
         program,
@@ -53,6 +53,31 @@ describe("roulette_dapp", () => {
         isBlack_bob1,
         bet_bump
       );
+    });
+    it("Cannot initialize bet with bet numbet larger than 36", async () => {
+      let should_fail = "This Should Fail";
+      try {
+        const [bet_pkey, bet_bump] = getBetAdress(
+          betNumber_bob2,
+          isBlack_bob2,
+          bob.publicKey,
+          program.programId
+        );
+
+        await program.methods
+          .initialize(betNumber_bob2, isBlack_bob2)
+          .accounts({
+            bet: bet_pkey,
+            betAuthority: bob.publicKey,
+          })
+          .signers([bob])
+          .rpc({ commitment: "confirmed" });
+      } catch (error) {
+        const err = anchor.AnchorError.parse(error.logs);
+        assert.strictEqual(err.error.errorCode.code, "InvalidBetNumber");
+        should_fail = "Failed";
+      }
+      assert.strictEqual(should_fail, "Failed");
     });
   });
 });
