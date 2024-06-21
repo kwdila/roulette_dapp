@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-pub const BET_LEN: usize = 32 + 1 + 1 + 1 + 1;
+pub const BET_LEN: usize = 32 + 1 + 1 + 1 + 1 + 32;
 
 #[account]
 pub struct Bet {
