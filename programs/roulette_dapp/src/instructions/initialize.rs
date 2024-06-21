@@ -29,7 +29,7 @@ pub struct InitializeBet<'info> {
         seeds = [
             bet_authority.key().as_ref(),
             BET_SEED.as_bytes(),
-            &[bet_number],
+            &[bet_number as u8],
             &[is_black as u8],
         ],
         bump    
