@@ -9,5 +9,13 @@ pub struct Bet {
     pub is_black: bool,
     pub is_even: bool,
     pub bump: u8,
-    pub randomness_account: Pubkey,
+    pub bet_won: bool,
+    pub random_number: u8,
+}
+
+#[derive(PartialEq)]
+pub enum Color {
+    Red,
+    Black,
+    Green,
 }

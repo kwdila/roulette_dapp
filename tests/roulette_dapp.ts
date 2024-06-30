@@ -2,9 +2,8 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { RouletteDapp } from "../target/types/roulette_dapp";
 
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { assert } from "chai";
-import crypto from "crypto";
 
 const BET_SEED = "BET_SEED";
 
@@ -20,7 +19,7 @@ describe("roulette_dapp", () => {
   const betNumber_bob1 = 30;
   const isBlack_bob1 = false;
 
-  const betNumber_bob2 = 56;
+  const betNumber_bob2 = 37;
   const isBlack_bob2 = true;
 
   const betNumber_bob3 = 0;
@@ -29,7 +28,7 @@ describe("roulette_dapp", () => {
   describe("Initialize Bet", async () => {
     it("Bet initialized!", async () => {
       await airdrop(provider.connection, bob.publicKey);
-      const [bet_pkey, bet_bump] = getBetAdress(
+      const [bet_pkey, bet_bump] = getBetAddress(
         betNumber_bob1,
         isBlack_bob1,
         bob.publicKey,
@@ -45,7 +44,7 @@ describe("roulette_dapp", () => {
         .signers([bob])
         .rpc({ commitment: "confirmed" });
 
-      await checkTweet(
+      await checkBet(
         program,
         bet_pkey,
         bob.publicKey,
@@ -57,7 +56,7 @@ describe("roulette_dapp", () => {
     it("Cannot initialize bet with bet numbet larger than 36", async () => {
       let should_fail = "This Should Fail";
       try {
-        const [bet_pkey, bet_bump] = getBetAdress(
+        const [bet_pkey, bet_bump] = getBetAddress(
           betNumber_bob2,
           isBlack_bob2,
           bob.publicKey,
@@ -80,9 +79,39 @@ describe("roulette_dapp", () => {
       assert.strictEqual(should_fail, "Failed");
     });
   });
+  describe("Finalize Bet", async () => {
+    it("Bet Finalized", async () => {
+      await airdrop(provider.connection, bob.publicKey);
+      const [bet_pkey, bet_bump] = getBetAddress(
+        betNumber_bob1,
+        isBlack_bob1,
+        bob.publicKey,
+        program.programId
+      );
+
+      await program.methods
+        .finalize()
+        .accounts({
+          bet: bet_pkey,
+          betAuthority: bob.publicKey,
+        })
+        .signers([bob])
+        .rpc({ commitment: "confirmed" });
+
+      await checkBet(
+        program,
+        bet_pkey,
+        bob.publicKey,
+        betNumber_bob1,
+        isBlack_bob1,
+        bet_bump
+      );
+      await checkRandom(program, bet_pkey, betNumber_bob1, isBlack_bob1);
+    });
+  });
 });
 
-function getBetAdress(
+function getBetAddress(
   betNumber: number,
   isBlack: boolean,
   author: PublicKey,
@@ -102,13 +131,17 @@ function getBetAdress(
   );
 }
 
-async function airdrop(connection: any, address: any, amount = 1000000000) {
+async function airdrop(
+  connection: any,
+  address: any,
+  amount = 100 * LAMPORTS_PER_SOL
+) {
   await connection.confirmTransaction(
     await connection.requestAirdrop(address, amount),
     "confirmed"
   );
 }
-async function checkTweet(
+async function checkBet(
   program: anchor.Program<RouletteDapp>,
   bet: anchor.web3.PublicKey,
   betAuthority: anchor.web3.PublicKey,
@@ -135,5 +168,22 @@ async function checkTweet(
 
   if (bump) {
     assert.strictEqual(betData.bump, bump);
+  }
+}
+
+async function checkRandom(
+  program: anchor.Program<RouletteDapp>,
+  bet: anchor.web3.PublicKey,
+  betNumber: number,
+  isBlack: boolean
+) {
+  let betData = await program.account.bet.fetch(bet);
+
+  if (betNumber == betData.randomNumber) {
+    assert.strictEqual(true, betData.betWon);
+  }
+
+  if (betNumber % 2 == 0 && betData.randomNumber % 2 == 0) {
+    assert.strictEqual(true, betData.betWon);
   }
 }
