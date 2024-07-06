@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use num_traits::*;
 
-use crate::states::{Bet,BET_LEN,BetType};
+use crate::states::{Bet,BetType};
 use crate::errors::BetError;
 use crate::constants::BET_SEED;
 
@@ -35,7 +35,7 @@ pub struct InitializeBet<'info> {
     #[account(
         init,
         payer  = bet_authority,
-        space = 8 + BET_LEN,
+        space = 8 + Bet::INIT_SPACE,
         seeds = [
             bet_authority.key().as_ref(),
             BET_SEED.as_bytes(),

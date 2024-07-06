@@ -12,4 +12,6 @@ pub enum BetError {
     MissingBetTypeParameter,
     #[msg("This bet is already Initialized")]
     AlreadyInitialized,
+    #[msg("Not enough Sol balance to Initialize specified bet amount")]
+    InsufficientFunds,
 }
