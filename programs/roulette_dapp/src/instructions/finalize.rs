@@ -1,22 +1,23 @@
 use anchor_lang::prelude::*;
+use num_traits::*;
 
 use crate::constants::{self, BET_SEED};
 use crate::states::{Bet, Color};
-use crate::BetError;
+use crate::{BetError, BetType::*};
 
 pub fn _finalize_bet(ctx: Context<FinalizeBet>) -> Result<()> {
     let clock = Clock::get()?;
     let bet = &mut ctx.accounts.bet;
 
-    require!(
-        ctx.accounts.bet_authority.key() == bet.bet_authority.key(),
-        BetError::UnauthorizedSigner,
+    require_keys_eq!(
+        ctx.accounts.bet_authority.key(),
+        bet.bet_authority.key(),
+        BetError::UnauthorizedSigner
     );
 
-    let mut bet_won = false;
     let random_number = xorshift64(clock.slot) % (constants::MAX_NUMBER + 1);
 
-    bet.random_number = random_number;
+    bet.random_number = Some(random_number);
 
     msg!("Random number is: {}", random_number);
 
@@ -31,13 +32,15 @@ pub fn _finalize_bet(ctx: Context<FinalizeBet>) -> Result<()> {
         _ => Err(BetError::RandomnessNotResolved.into()),
     };
 
-    if bet.is_even == (random_number % 2 == 0) {
-        bet_won = true
-    }
-
-    if bet.is_black == (random_color.unwrap() == Color::Black) {
-        bet_won = true
-    }
+    let bet_won = match bet.bet_type {
+        Straightup => bet.bet_number.unwrap() == random_number,
+        Odd => random_number % 2 == 1,
+        Even => random_number % 2 == 0,
+        Black => random_color.unwrap() == Color::Black,
+        Red => random_color.unwrap() == Color::Red,
+        Low => random_number < 19,
+        High => random_number > 18,
+    };
 
     bet.bet_won = bet_won;
 
@@ -57,8 +60,7 @@ pub struct FinalizeBet<'info> {
         seeds = [
             bet_authority.key().as_ref(),
             BET_SEED.as_bytes(),
-            &[bet.bet_number as u8],
-            &[bet.is_black as u8],
+            &[bet.bet_type.to_u8().unwrap()]
         ],
         bump = bet.bump,
     )]

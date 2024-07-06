@@ -8,4 +8,8 @@ pub enum BetError {
     UnauthorizedSigner,
     #[msg("Could not get random number value")]
     RandomnessNotResolved,
+    #[msg("StraightUp BetType Requires bet_number parameter")]
+    MissingBetTypeParameter,
+    #[msg("This bet is already Initialized")]
+    AlreadyInitialized,
 }

@@ -10,14 +10,18 @@ pub use errors::*;
 pub use instructions::*;
 pub use states::*;
 
-declare_id!("9UiNkKquaH2AhXmQC7QKfrtyZoF3mHJzJcmYxvDdir3H");
+declare_id!("A1xnrB222HUHzpmMC8q7CrKZST3tDtJtEm14u8mhaGwq");
 
 #[program]
 pub mod roulette_dapp {
     use super::*;
 
-    pub fn initialize(ctx: Context<InitializeBet>, bet_number: u8, is_black: bool) -> Result<()> {
-        _initialize_bet(ctx, bet_number, is_black)
+    pub fn initialize(
+        ctx: Context<InitializeBet>,
+        bet_type: BetType,
+        bet_number: Option<u8>,
+    ) -> Result<()> {
+        _initialize_bet(ctx, bet_type, bet_number)
     }
 
     pub fn finalize(ctx: Context<FinalizeBet>) -> Result<()> {

@@ -17,54 +17,30 @@ describe("roulette_dapp", () => {
   const alice = anchor.web3.Keypair.generate();
 
   const betNumber_bob1 = 30;
-  const isBlack_bob1 = false;
+  const betType_bob1 = { straightup: {} };
 
   const betNumber_bob2 = 37;
-  const isBlack_bob2 = true;
 
   const betNumber_bob3 = 0;
-  const isBlack_bob3 = false;
 
   describe("Initialize Bet", async () => {
-    it("Bet initialized!", async () => {
+    it("Cannot initialize bet with bet numbet larger than 36", async () => {
       await airdrop(provider.connection, bob.publicKey);
       const [bet_pkey, bet_bump] = getBetAddress(
-        betNumber_bob1,
-        isBlack_bob1,
         bob.publicKey,
+        betType_bob1,
         program.programId
       );
-
-      await program.methods
-        .initialize(betNumber_bob1, isBlack_bob1)
-        .accounts({
-          bet: bet_pkey,
-          betAuthority: bob.publicKey,
-        })
-        .signers([bob])
-        .rpc({ commitment: "confirmed" });
-
-      await checkBet(
-        program,
-        bet_pkey,
-        bob.publicKey,
-        betNumber_bob1,
-        isBlack_bob1,
-        bet_bump
-      );
-    });
-    it("Cannot initialize bet with bet numbet larger than 36", async () => {
       let should_fail = "This Should Fail";
       try {
         const [bet_pkey, bet_bump] = getBetAddress(
-          betNumber_bob2,
-          isBlack_bob2,
           bob.publicKey,
+          betType_bob1,
           program.programId
         );
 
         await program.methods
-          .initialize(betNumber_bob2, isBlack_bob2)
+          .initialize(betType_bob1, betNumber_bob2)
           .accounts({
             bet: bet_pkey,
             betAuthority: bob.publicKey,
@@ -78,14 +54,38 @@ describe("roulette_dapp", () => {
       }
       assert.strictEqual(should_fail, "Failed");
     });
+    it("Bet initialized!", async () => {
+      await airdrop(provider.connection, bob.publicKey);
+      const [bet_pkey, bet_bump] = getBetAddress(
+        bob.publicKey,
+        betType_bob1,
+        program.programId
+      );
+
+      await program.methods
+        .initialize(betType_bob1, betNumber_bob1)
+        .accounts({
+          bet: bet_pkey,
+          betAuthority: bob.publicKey,
+        })
+        .signers([bob])
+        .rpc({ skipPreflight: true });
+
+      await checkBet(
+        program,
+        bet_pkey,
+        bob.publicKey,
+        betNumber_bob1,
+        bet_bump
+      );
+    });
   });
   describe("Finalize Bet", async () => {
     it("Bet Finalized", async () => {
       await airdrop(provider.connection, bob.publicKey);
       const [bet_pkey, bet_bump] = getBetAddress(
-        betNumber_bob1,
-        isBlack_bob1,
         bob.publicKey,
+        betType_bob1,
         program.programId
       );
 
@@ -103,29 +103,28 @@ describe("roulette_dapp", () => {
         bet_pkey,
         bob.publicKey,
         betNumber_bob1,
-        isBlack_bob1,
         bet_bump
       );
-      await checkRandom(program, bet_pkey, betNumber_bob1, isBlack_bob1);
+      await checkRandom(program, bet_pkey, betType_bob1, betNumber_bob1);
     });
   });
 });
 
 function getBetAddress(
-  betNumber: number,
-  isBlack: boolean,
   author: PublicKey,
+  betType: { [key: string]: {} },
   programID: PublicKey
 ) {
-  const colorBuffer = Buffer.alloc(1);
-  colorBuffer[0] = isBlack ? 1 : 0; // 1 for black, 0 for red
-
+  assert.strictEqual(
+    Object.keys(betType)[0],
+    "straightup",
+    "Unexpected BetType"
+  );
   return PublicKey.findProgramAddressSync(
     [
       author.toBuffer(),
       anchor.utils.bytes.utf8.encode(BET_SEED),
-      new anchor.BN(betNumber).toArrayLike(Buffer),
-      colorBuffer,
+      new anchor.BN(0).toArrayLike(Buffer), //0 for straightup bettype
     ],
     programID
   );
@@ -146,7 +145,6 @@ async function checkBet(
   bet: anchor.web3.PublicKey,
   betAuthority: anchor.web3.PublicKey,
   betNumber: number,
-  isBlack: boolean,
   bump: number
 ) {
   let betData = await program.account.bet.fetch(bet);
@@ -162,10 +160,6 @@ async function checkBet(
     assert.strictEqual(betData.betNumber, betNumber);
   }
 
-  if (isBlack) {
-    assert.strictEqual(betData.isBlack, isBlack);
-  }
-
   if (bump) {
     assert.strictEqual(betData.bump, bump);
   }
@@ -174,16 +168,25 @@ async function checkBet(
 async function checkRandom(
   program: anchor.Program<RouletteDapp>,
   bet: anchor.web3.PublicKey,
-  betNumber: number,
-  isBlack: boolean
+  betType: { [key: string]: {} },
+  betNumber?: number
 ) {
   let betData = await program.account.bet.fetch(bet);
+  let betTypeString = Object.keys(betType)[0];
 
-  if (betNumber == betData.randomNumber) {
-    assert.strictEqual(true, betData.betWon);
+  if (betTypeString == "straightup" && betData.randomNumber == betNumber) {
+    assert.strictEqual(
+      true,
+      betData.betWon,
+      "Bet should be won but is was not"
+    );
   }
 
-  if (betNumber % 2 == 0 && betData.randomNumber % 2 == 0) {
-    assert.strictEqual(true, betData.betWon);
+  if (betTypeString == "black" && betData.randomColor[0] == "black") {
+    assert.strictEqual(
+      true,
+      betData.betWon,
+      "Bet should be won but is was not"
+    );
   }
 }

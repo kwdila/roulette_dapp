@@ -1,28 +1,36 @@
 use anchor_lang::prelude::*;
+use num_traits::*;
 
-use crate::states::{Bet,BET_LEN};
+use crate::states::{Bet,BET_LEN,BetType};
 use crate::errors::BetError;
 use crate::constants::BET_SEED;
 
-pub fn _initialize_bet(ctx: Context<InitializeBet>, bet_number:u8,is_black:bool) -> Result<()> {
+pub fn _initialize_bet(ctx: Context<InitializeBet>, bet_type:BetType, bet_number: Option<u8>) -> Result<()> {
     let bet = &mut ctx.accounts.bet;
 
-    require!(bet_number <= 36, BetError::InvalidBetNumber);
+    require!(bet.is_initialized != true,BetError::AlreadyInitialized);
+
+    match bet_number {
+        Some(num) => require!(num < 37, BetError::InvalidBetNumber),
+        None => require!(bet_type != BetType::Straightup, BetError::MissingBetTypeParameter),
+    }
+    bet.bet_type = bet_type;
+    
+    bet.bet_number = bet_number;
 
     bet.bet_authority = ctx.accounts.bet_authority.key();
     bet.bump = ctx.bumps.bet;
-    bet.bet_number = bet_number;
-    bet.is_black = is_black;
-    bet.is_even = bet_number % 2 == 0;
-
     bet.bet_won = false;
-    bet.random_number = 37;
+    bet.is_initialized = true;
+
+    bet.random_number = None;
+    bet.random_color = None;
 
     Ok(())
 }
 
 #[derive(Accounts)]
-#[instruction(bet_number:u8,is_black:bool)]
+#[instruction(bet_type:BetType,bet_number:Option<u8>)]
 pub struct InitializeBet<'info> {
     #[account(
         init,
@@ -31,8 +39,7 @@ pub struct InitializeBet<'info> {
         seeds = [
             bet_authority.key().as_ref(),
             BET_SEED.as_bytes(),
-            &[bet_number as u8],
-            &[is_black as u8],
+            &[bet_type.to_u8().unwrap()]
         ],
         bump    
     )]
