@@ -14,4 +14,6 @@ pub enum BetError {
     AlreadyInitialized,
     #[msg("Not enough Sol balance to Initialize specified bet amount")]
     InsufficientFunds,
+    #[msg("Bet Either Is not Initialized Or Finished")]
+    BetNotInitialized,
 }

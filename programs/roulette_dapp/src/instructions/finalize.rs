@@ -9,6 +9,8 @@ pub fn _finalize_bet(ctx: Context<FinalizeBet>) -> Result<()> {
     let clock = Clock::get()?;
     let bet = &mut ctx.accounts.bet;
 
+    require_eq!(bet.is_initialized, true, BetError::BetNotInitialized);
+
     require_keys_eq!(
         ctx.accounts.bet_authority.key(),
         bet.bet_authority.key(),
